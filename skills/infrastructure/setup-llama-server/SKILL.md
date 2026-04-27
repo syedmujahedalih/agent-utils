@@ -1,6 +1,9 @@
 ---
 name: setup-llama-server
-description: Sets up a persistent llama.cpp OpenAI-compatible inference server. Use when asked to install or configure a local LLM inference server, set up llama.cpp, or configure a local model backend for AI agents.
+description: Sets up a persistent llama.cpp OpenAI-compatible 
+inference server. Use when asked to install or configure a 
+local LLM inference server, set up llama.cpp, or configure 
+a local model backend for AI agents.
 ---
 
 # Setup llama.cpp Inference Server
@@ -35,13 +38,15 @@ echo "RAM check passed: ${RAM_GB}GB available"
 
 ## 2. Download the Model
 
-Install `huggingface-cli` and download `Qwen3-14B-Q4_K_M.gguf` from the `unsloth/Qwen3-14B-GGUF` repository.
+Install the huggingface CLI and download Qwen3-14B-Q4_K_M.gguf.
 
 ```bash
 pip install -U huggingface_hub
 
 mkdir -p ~/models
-huggingface-cli download unsloth/Qwen3-14B-GGUF Qwen3-14B-Q4_K_M.gguf --local-dir ~/models
+hf download unsloth/Qwen3-14B-GGUF \
+  Qwen3-14B-Q4_K_M.gguf \
+  --local-dir ~/models
 ```
 
 ## 3. Install llama.cpp
@@ -72,9 +77,11 @@ cmake --build build --config Release -j$(nproc)
 
 ## 4. Create a Background Service
 
+Replace YOUR_USERNAME with your actual system username.
+
 ### macOS — launchd
 
-Create the plist at `~/Library/LaunchAgents/com.llamacpp.server.plist`:
+Create ~/Library/LaunchAgents/com.llamacpp.server.plist:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -86,8 +93,8 @@ Create the plist at `~/Library/LaunchAgents/com.llamacpp.server.plist`:
   <string>com.llamacpp.server</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/local/bin/llama-server</string>
-    <string>-m</string>
+    <string>/opt/homebrew/bin/llama-server</string>
+    <string>--model</string>
     <string>/Users/YOUR_USERNAME/models/Qwen3-14B-Q4_K_M.gguf</string>
     <string>--host</string>
     <string>0.0.0.0</string>
@@ -103,10 +110,12 @@ Create the plist at `~/Library/LaunchAgents/com.llamacpp.server.plist`:
   <true/>
   <key>KeepAlive</key>
   <true/>
+  <key>NetworkState</key>
+  <true/>
   <key>StandardOutPath</key>
-  <string>/tmp/llama-server.log</string>
+  <string>/Users/YOUR_USERNAME/Library/Logs/llamacpp-server.log</string>
   <key>StandardErrorPath</key>
-  <string>/tmp/llama-server.err</string>
+  <string>/Users/YOUR_USERNAME/Library/Logs/llamacpp-server-error.log</string>
 </dict>
 </plist>
 ```
@@ -119,7 +128,7 @@ launchctl load ~/Library/LaunchAgents/com.llamacpp.server.plist
 
 ### Linux — systemd
 
-Create `/etc/systemd/system/llama-server.service`:
+Create /etc/systemd/system/llama-server.service:
 
 ```ini
 [Unit]
@@ -127,14 +136,16 @@ Description=llama.cpp OpenAI-compatible inference server
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/llama-server \
-  -m /home/YOUR_USERNAME/models/Qwen3-14B-Q4_K_M.gguf \
+ExecStart=/home/YOUR_USERNAME/llama.cpp/build/bin/llama-server \
+  --model /home/YOUR_USERNAME/models/Qwen3-14B-Q4_K_M.gguf \
   --host 0.0.0.0 \
   --port 8080 \
+  -ngl 99 \
   --ctx-size 16384 \
   --no-slots
 Restart=always
 RestartSec=5
+User=YOUR_USERNAME
 StandardOutput=journal
 StandardError=journal
 
@@ -142,9 +153,9 @@ StandardError=journal
 WantedBy=multi-user.target
 ```
 
-> For NVIDIA GPU builds, add `-ngl 99` to the `ExecStart` flags. Omit it for CPU-only.
+> For CPU-only builds drop the `-ngl 99` flag.
 
-Enable and start the service:
+Enable and start:
 
 ```bash
 sudo systemctl enable --now llama-server
@@ -166,16 +177,18 @@ You should receive a JSON response listing the loaded model.
 brew install --cask tailscale
 ```
 
-Open the Tailscale app and sign in.
+Open the Tailscale app and create a free account at
+tailscale.com. Sign in.
 
-### Linux
+### Linux / VPS
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 ```
 
-Expose the server over Tailscale:
+Install Tailscale on your phone or remote device and sign
+in with the same account. Then expose the server:
 
 ```bash
 tailscale serve --bg http://localhost:8080
@@ -183,10 +196,19 @@ tailscale serve --bg http://localhost:8080
 
 ## 7. Verify Remote Access
 
-From another device connected to the same Tailscale network, run:
+Two ways to reach the server remotely:
 
+Via Tailscale Serve (HTTPS, no port):
 ```bash
-curl http://<tailscale-hostname>:8080/v1/models
+curl https://<your-machine>.tail-xxxxx.ts.net/v1/models
 ```
 
-Replace `<tailscale-hostname>` with the machine's Tailscale hostname or IP (visible via `tailscale status`).
+Via Tailscale IP directly (HTTP, with port):
+```bash
+curl http://$(tailscale ip -4):8080/v1/models
+```
+
+Get your Tailscale hostname and IP:
+```bash
+tailscale status
+```
