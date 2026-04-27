@@ -1,9 +1,6 @@
 ---
 name: setup-llama-server
-description: Sets up a persistent llama.cpp OpenAI-compatible 
-inference server. Use when asked to install or configure a 
-local LLM inference server, set up llama.cpp, or configure 
-a local model backend for AI agents.
+description: "Sets up a persistent llama.cpp OpenAI-compatible inference server. Use when asked to install or configure a local LLM inference server, set up llama.cpp, or configure a local model backend for AI agents."
 ---
 
 # Setup llama.cpp Inference Server
